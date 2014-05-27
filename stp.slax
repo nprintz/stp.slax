@@ -6,6 +6,7 @@ import "../import/junos.xsl";
 /*
 ***Use this script at your own risk.***
 
+DESCRIPTION:
 This script will combine and shorten the output of both 'show spanning-tree bridge' 
 and 'show spanning-tree interface' into one easy to read format. You can determine 
 if the local switch is root, what the root mac and priority are, why the local 
@@ -13,10 +14,14 @@ switch is not root, and what interface is the root port if it isn't root. It wil
 one line for each instance in an MSTP or VSTP configuration where the local switch is
 root. It will print two lines in an instance where the local switch is not root.
 
+VERSION HISTORY:
 v1.0  -  inital release
 v1.1  -  modified template rootport-vlans to not display the 'VLANS' line when RSTP is running, 
 			since it should be obvious that all vlans are encompassed by RSTP. 
-			Also changed how ouput is handled to remove output-line template, which made code more readable. 
+			Also changed how ouput is handled to remove output-line template, which made code more readable.
+v1.2  -  changed invoking of the commands to be one open connection to the RE, to improve callback time.  
+		 	Also made some changes to comments. 
+
 
 Example output for MSTP:
 		> op stp 
@@ -34,6 +39,7 @@ Example output for MSTP:
 		MSTI 2       16385        3c:8a:b0:9c:3a:01   Yes    N/A                           
 		  VLANS: 21-50     
 
+
 Example output for RSTP:
 		> op stp 
 		-------------------------------------------------------------
@@ -43,23 +49,28 @@ Example output for RSTP:
 */
 match / {
 	<op-script-results> {
+		/* open a connection to the RE for running multiple RPCs rapid fire, to save on compute time */
+		var $conn = jcs:open();
+
 		/* acquires all information from 'show spanning-tree bridge' */
-		var $bridge-res = jcs:invoke( "get-stp-bridge-information" );
+		var $bridge-res = jcs:execute( $conn, "get-stp-bridge-information" );
 		
 		/* acquires all info from 'show spanning-tree interfaces' */
-		var $stp-int-res = jcs:invoke( "get-stp-bridge-interface-information" );
+		var $stp-int-res = jcs:execute( $conn, "get-stp-bridge-interface-information" );
 		
 		/*gets the output of 'show spanning-tree mstp configuration', 
 		which is used to determine the VLANS in an MSTP scenario */
-		var $mstp-conf-res = jcs:invoke( "get-mstp-bridge-configuration-information" );
+		var $mstp-conf-res = jcs:execute( $conn, "get-mstp-bridge-configuration-information" );
 		
+		/* Close the connection to the RE */
+		expr jcs:close( $conn );
+
 		/* Format string for printf function calls */
 		var $format = "%-13s%-13s%-20s%-7s%-30s";
 
 		/* header line */
 		<output> "-------------------------------------------------------------";
 		<output> jcs:printf( $format, "Region", "Rt Priority", "Root MAC", "Root?", "Why Not?");
-		/* call output-line ( $region = "Region", $priority = "Rt Priority", $mac = "Root MAC", $root = "Root?", $reason = "Why Not?" ); */
 		
 		/* loops for each CIST available (there should only be one, 
 		but I want to keep some variables local, so am using a loop 
@@ -74,17 +85,16 @@ match / {
 										expr $bridge-res/protocol;
 									}
 								}
+			/* $context is used to be passed to other templates to easily find the xml node tree for the CIST */
 			var $context = ( ./extended-system-id );
 			/* determines if the local bridge is the root for the CIST/RSTP region */
 			if ($cist-res/bridge-mac == ./this-bridge/bridge-mac) { 
 				<output> jcs:printf( $format, $protocol, $cist-res/bridge-priority, $cist-res/bridge-mac, "Yes", "N/A");
-				/* call output-line ( $region = $protocol, $priority = $cist-res/bridge-priority, $mac = $cist-res/bridge-mac, $root = $root , $reason = "N/A"); */
 				call rootport-vlans ( $results = $stp-int-res , $context = $context , $vlans = $mstp-conf-res, $msti = $context , $root = 1, $protocol = $protocol);
 			}
 			else {
 				var $not-root-reason = { call not-root-reason ( $results = $cist-res ); }
 				<output> jcs:printf( $format, $protocol, $cist-res/bridge-priority, $cist-res/bridge-mac, "No", $not-root-reason);
-				/* call output-line ( $region = $protocol, $priority = $cist-res/bridge-priority, $mac = $cist-res/bridge-mac, $root = $root , $reason = $not-root-reason); */
 				
 				/* calls to find the root port and the vlans  */
 				call rootport-vlans ( $results = $stp-int-res , $context = $context , $vlans = $mstp-conf-res, $msti = $context , $root = 0, $protocol = $protocol);
@@ -95,7 +105,7 @@ match / {
 		if ( $bridge-res/msti-bridge-parameters ) {
 			/* this loops for all msti regions */
 			for-each ( $bridge-res/msti-bridge-parameters) {
-				/*this variable drills down to the region's root bridge for code readability */
+				/* this variable drills down to the region's root bridge for code readability */
 				var $msti-res = $bridge-res/msti-bridge-parameters/msti-regional-root-bridge;
 				var $region = "MSTI " _ ./msti-id ;
 				var $context = ( ./msti-id );
@@ -104,19 +114,16 @@ match / {
 				<output> "" ;
 				<output> "-------------------------------------------------------------";
 				<output> jcs:printf( $format, "Region", "Rt Priority", "Root MAC", "Root?", "Why Not?");
-				/* call output-line ( $region = "Region", $priority = "Rt Priority", $mac = "Root MAC", $root = "Root?", $reason = "Why Not?" ); */
 				
 				/* determines if the local bridge is the root for the given MSTI region */
 				if ($msti-res/bridge-mac == ./this-bridge/bridge-mac) {
 					<output> jcs:printf( $format, $region, $msti-res/bridge-priority, $msti-res/bridge-mac, "Yes", "N/A");
-					/* call output-line ( $region = $region, $priority = $msti-res/bridge-priority, $mac = $msti-res/bridge-mac, $root = $root, $reason = "N/A" );  */
 					call rootport-vlans ( $results = $stp-int-res, $context = $context , $vlans = $mstp-conf-res, $msti = ./msti-id , $root = 1, $protocol = "MSTP");
 				}
 				else { 
 					var $not-root-reason = { call not-root-reason ($results = $msti-res ); }
 					<output> jcs:printf( $format, $region, $msti-res/bridge-priority, $msti-res/bridge-mac, "No", $not-root-reason);
-					/* call output-line ( $region = $region, $priority = $msti-res/bridge-priority, $mac = $msti-res/bridge-mac, $root = $root, $reason = $not-root-reason ); */
-					/* The context is the extended-system-id kept in the mstp instance, so that we only get 
+					/* The $context is the extended-system-id kept in the mstp instance, so that we only get 
 						the root port for that mstp instance. */
 					call rootport-vlans ( $results = $stp-int-res, $context = $context , $vlans = $mstp-conf-res, $msti = ./msti-id , $root = 0, $protocol = "MSTP");
 				}
@@ -129,36 +136,27 @@ match / {
 			<output> "";
 			<output> "VSTP Instances:";
 			<output> jcs:printf( $format, "VSTP VLAN", "Rt Priority", "Root MAC", "Root?", "Why Not?");
-			call output-line ( $region = "VSTP Vlan", $priority = "Rt Priority", $mac = "Root MAC", $root = "Root?", $reason = "Why Not?" );
 			
 			/* loops for each vstp instance */
 			for-each ( $bridge-res/vst-bridge-parameters ) {
 				var $vstp-res = $bridge-res/vst-bridge-parameters/root-bridge;
 				var $region = " Vlan " _ ./vlan-id ;
 				var $context = ( ./extended-system-id );
-				/*determines if the local switch is root and acts accordingly */
+				/* Determines if the local switch is root and acts accordingly */
 				if ($vstp-res/bridge-mac == ./this-bridge/bridge-mac) {
 					<output> jcs:printf( $format, $region, $vstp-res/bridge-priority, $vstp-res/bridge-mac, "Yes", "N/A");
-					/* call output-line ( $region = $region, $priority = $vstp-res/bridge-priority, $mac = $vstp-res/bridge-mac, $root = $root, $reason = "N/A"); */
-					/* called just to get the vlans for this instance, since we are the root */
+					/* Called just to get the vlans for this instance, since we are the root */
 					call rootport-vlans ( $results = $stp-int-res, $context = $context , $vlans = $mstp-conf-res , $msti = ./vlan-id, $root = 1, $protocol = "VSTP");
 				}
 				else {
 					var $not-root-reason = { call not-root-reason ( $results = $vstp-res ); }
 					<output> jcs:printf( $format, $region, $vstp-res/bridge-priority, $vstp-res/bridge-mac, "No", $not-root-reason);
-					/* call output-line ( $region = $region, $priority = $vstp-res/bridge-priority, $mac = $vstp-res/bridge-mac, $root = $root, $reason = $not-root-reason); */
 					/* Called to get both the root port, and the vlan information. */
 					call rootport-vlans ( $results = $stp-int-res, $context = $context , $vlans = $mstp-conf-res , $msti = ./vlan-id , $root = 0, $protocol = "VSTP");
 				}
 			}
 		}
 	}
-}
-
-/*template for outputting lines. Each passed param corresponds to 
-a column of output, which will default to blank. */
-template output-line ( $region = "", $priority = "", $mac = "", $root = "", $reason = "") {
-	<output> jcs:printf( "%-13s%-13s%-20s%-7s%-30s", $region, $priority, $mac, $root, $reason);
 }
 
 /* this template is used to determine the reason a switch is not the root. 
@@ -174,15 +172,14 @@ template not-root-reason ( $results ) {
 	}
 }
 
-/* Finds the root port, and outputs that line. Can also be used to find the 
-	vlans that a given MSTI is responsible for. 
+/* Finds the root port if we are not root. It will also find the VLANs for a given MSTI instance as well.
 	
-	Passed Params: $results = the results of the 'show spanning-tree interface' command
-					   $context = the extended-system-id of the M/VSTP instance that called this template. 
-						$vlans = the output of the 'show spanning-tree mstp configuration' command, for
+	Passed Params: 		$results = xml node - the results of the 'show spanning-tree interface' command
+					    $context = string - the extended-system-id of the M/VSTP instance that called this template. 
+						$vlans = xml node - the output of the 'show spanning-tree mstp configuration' command, for
 									finding the vlans
-						$msti = msti that we are in.
-						$root = lets this function know if root port needs to be found, since a switch could
+						$msti = string - number of the msti that we are in.
+						$root = number - 0 or 1 - lets this function know if root port needs to be found, since a switch could
 									be both running MSTP and need the vlan information, but also be root, and not
 									need the root port information. 
 						$protocol = string of the STP protocol that is running, (ex. 'VSTP', 'CIST', 'RSTP', 'MSTP') 
@@ -190,7 +187,7 @@ template not-root-reason ( $results ) {
 									need vlan info) */
 template rootport-vlans ($results, $context, $vlans, $msti, $root, $protocol) {
 	
-	/* finds the vlan string for which vlans a given msti we are looking for */
+	/* finds the vlan string for the msti we are in. */
 	var $vlans-output = { for-each ( $vlans/vlan-map/vlan-map-entry ) {
 									if ($msti == ./msti-id) {
 										expr ./vlan-string;
@@ -218,7 +215,7 @@ template rootport-vlans ($results, $context, $vlans, $msti, $root, $protocol) {
 					}
 				}
 			}
-			/*outputs just the vlan info we are the root switch for this instance */
+			/* outputs just the vlan info we are the root switch for this instance */
 			else if ($protocol != 'RSTP') {
 				<output> jcs:printf( "%9s%-36s", '  VLANS: ' , $vlans-output );
 			}
