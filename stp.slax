@@ -20,6 +20,7 @@ v1.1  -  modified template rootport-vlans to not display the 'VLANS' line when R
 			since it should be obvious that all vlans are encompassed by RSTP. 
 			Also changed how ouput is handled to remove output-line template, which made code more readable.
 v1.2  -  changed invoking of the commands to be one open connection to the RE, to improve callback time.  
+		 	Also made some changes to comments. 
 
 
 Example output for MSTP:
@@ -84,6 +85,7 @@ match / {
 										expr $bridge-res/protocol;
 									}
 								}
+			/* $context is used to be passed to other templates to easily find the xml node tree for the CIST */
 			var $context = ( ./extended-system-id );
 			/* determines if the local bridge is the root for the CIST/RSTP region */
 			if ($cist-res/bridge-mac == ./this-bridge/bridge-mac) { 
@@ -140,10 +142,10 @@ match / {
 				var $vstp-res = $bridge-res/vst-bridge-parameters/root-bridge;
 				var $region = " Vlan " _ ./vlan-id ;
 				var $context = ( ./extended-system-id );
-				/*determines if the local switch is root and acts accordingly */
+				/* Determines if the local switch is root and acts accordingly */
 				if ($vstp-res/bridge-mac == ./this-bridge/bridge-mac) {
 					<output> jcs:printf( $format, $region, $vstp-res/bridge-priority, $vstp-res/bridge-mac, "Yes", "N/A");
-					/* called just to get the vlans for this instance, since we are the root */
+					/* Called just to get the vlans for this instance, since we are the root */
 					call rootport-vlans ( $results = $stp-int-res, $context = $context , $vlans = $mstp-conf-res , $msti = ./vlan-id, $root = 1, $protocol = "VSTP");
 				}
 				else {
@@ -170,15 +172,14 @@ template not-root-reason ( $results ) {
 	}
 }
 
-/* Finds the root port, and outputs that line. Can also be used to find the 
-	vlans that a given MSTI is responsible for. 
+/* Finds the root port if we are not root. It will also find the VLANs for a given MSTI instance as well.
 	
-	Passed Params: $results = the results of the 'show spanning-tree interface' command
-					   $context = the extended-system-id of the M/VSTP instance that called this template. 
-						$vlans = the output of the 'show spanning-tree mstp configuration' command, for
+	Passed Params: 		$results = xml node - the results of the 'show spanning-tree interface' command
+					    $context = string - the extended-system-id of the M/VSTP instance that called this template. 
+						$vlans = xml node - the output of the 'show spanning-tree mstp configuration' command, for
 									finding the vlans
-						$msti = msti that we are in.
-						$root = lets this function know if root port needs to be found, since a switch could
+						$msti = string - number of the msti that we are in.
+						$root = number - 0 or 1 - lets this function know if root port needs to be found, since a switch could
 									be both running MSTP and need the vlan information, but also be root, and not
 									need the root port information. 
 						$protocol = string of the STP protocol that is running, (ex. 'VSTP', 'CIST', 'RSTP', 'MSTP') 
@@ -214,7 +215,7 @@ template rootport-vlans ($results, $context, $vlans, $msti, $root, $protocol) {
 					}
 				}
 			}
-			/*outputs just the vlan info we are the root switch for this instance */
+			/* outputs just the vlan info we are the root switch for this instance */
 			else if ($protocol != 'RSTP') {
 				<output> jcs:printf( "%9s%-36s", '  VLANS: ' , $vlans-output );
 			}
