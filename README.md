@@ -13,6 +13,14 @@ or MSTP scenario, it will also print associated VLANs for each MSTI.
 
 
 #### Examples:
+**RSTP Example:**
+		
+	> op stp 
+	-------------------------------------------------------------
+	Region       Rt Priority  Root MAC            Root?  Why Not?                      
+	RSTP         8192         40:b4:f0:6a:dc:01   No     Your priority: 32768          
+	                                              Root port:  ge-0/0/47.0       
+		                                              
 **MSTP Example:**
 
 	> op stp 
@@ -30,14 +38,6 @@ or MSTP scenario, it will also print associated VLANs for each MSTI.
 	MSTI 2       16385        3c:8a:b0:9c:3a:01   Yes    N/A                           
 	  VLANS: 21-50     
 
-**RSTP Example:**
-		
-	> op stp 
-	-------------------------------------------------------------
-	Region       Rt Priority  Root MAC            Root?  Why Not?                      
-	RSTP         8192         40:b4:f0:6a:dc:01   No     Your priority: 32768          
-	                                              Root port:  ge-0/0/47.0       
-		                                              
 #### Version History:
 * v1.0  -  inital release
 * v1.1  -  modified template rootport-vlans to not display the 'VLANS' line when RSTP is running, since it should be obvious that all vlans are encompassed by RSTP. Also changed how ouput is handled to remove output-line template, which made code more readable.
