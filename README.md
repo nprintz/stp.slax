@@ -5,8 +5,8 @@ stp.slax
 #### Description:
 Juniper SLAX op script for a quick STP topology breakdown.
 
-This script will combine and shorten the output of both 'show spanning-tree bridge' 
-and 'show spanning-tree interface' into one easy to read format. You can determine 
+This script will combine and shorten the output of both `show spanning-tree bridge` 
+and `show spanning-tree interface` into one easy to read format. You can determine 
 if the local switch is root, what the root priority and mac address are, why the local 
 switch is not root, and what interface is the root port if it isn't root. If in a VSTP 
 or MSTP scenario, it will also print associated VLANs for each MSTI. 
