@@ -39,7 +39,6 @@ or MSTP scenario, it will also print associated VLANs for each MSTI.
 	                                              Root port:  ge-0/0/47.0       
 		                                              
 #### Version History:
-* v1.2  -  changed invoking of the commands to be one open connection to the RE, to improve callback time. Also made some changes to comments.
-* v1.1  -  modified template rootport-vlans to not display the 'VLANS' line when RSTP is running, since it should be obvious that all vlans are encompassed by RSTP. Also changed how ouput is handled to remove output-line template, which made code more readable.
 * v1.0  -  inital release
-* 
+* v1.1  -  modified template rootport-vlans to not display the 'VLANS' line when RSTP is running, since it should be obvious that all vlans are encompassed by RSTP. Also changed how ouput is handled to remove output-line template, which made code more readable.
+* v1.2  -  changed invoking of the commands to be one open connection to the RE, to improve callback time. Also made some changes to comments. 
