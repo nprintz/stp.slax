@@ -2,6 +2,7 @@ version 1.0;
 ns junos = "http://xml.juniper.net/junos/*/junos";
 ns xnm = "http://xml.juniper.net/xnm/1.1/xnm";
 ns jcs = "http://xml.juniper.net/junos/commit-scripts/1.0";
+ns str = 'http://exslt.org/strings';
 import "../import/junos.xsl";
 /*
 ***Use this script at your own risk.***
@@ -31,39 +32,46 @@ VERSION HISTORY:
 	- Modified the output of the VLAN list. If it is greater than 35 characters, 
 		it shows up one line below, so that the Root Port information doesn't get shifted right.
 	- Added output for the MSTP Configuration Name, Revision Level, and Configuration Digest. 
+	- Fixed the logic for MSTP instances. There was an error so that the first MSTI was being used as the results for all MSTI instances. 
 	- Updated the Readme with instructions on using the SLAX script. 
 	- Modified output to be shown to the user as it is generated, rather than all at once upon script completion.
 		This should create quicker results for large numbers of MSTIs, so the user knows that the script is actively working.
+* v1.3.1
+	- Rootport-vlans template will now let the user know if there are no interfaces active in a given MSTI. 
+	- Rootport-vlans template will also now output the VLAN info for MSTIs where no VLANS in the MSTI have active interfaces. 
+	- VLAN info will now also be omitted when the protocol is STP, was previously only omitting for RSTP. 
+	- VSTP logic fix, had the same problem as MSTP in v1.3
+	- Made the VLAN list output easier to read by injecting a space after each comma. 
 
 AUTHOR: 
 	Nathan Printz
 
 EXAMPLES:
-RSTP:
-	> op stp
+	RSTP:
+		> op stp
 
-	-------------------------------------------------------------
-	Region       Rt Priority  Root MAC            Root?  Why Not?
-	RSTP         8192         40:b4:f0:6a:dc:01   No     Your priority: 32768
-	                                              Root port:  ge-0/0/47.0
+		-------------------------------------------------------------
+		Region       Rt Priority  Root MAC            Root?  Why Not?
+		RSTP         8192         40:b4:f0:6a:dc:01   No     Your priority: 32768
+		                                              Root port:  ge-0/0/47.0
 
-MSTP:
-	> op stp
+	MSTP:
+		> op stp
 
-	-------------------------------------------------------------
-	Region       Rt Priority  Root MAC            Root?  Why Not?
-	CIST         32768        3c:8a:b0:9c:3a:01   Yes    N/A
-	  VLANS: 0-9,51-4094
+		-------------------------------------------------------------
+		Region       Rt Priority  Root MAC            Root?  Why Not?
+		CIST         32768        3c:8a:b0:9c:3a:01   Yes    N/A
+		  VLANS: 0-9,51-4094
 
-	-------------------------------------------------------------
-	Region       Rt Priority  Root MAC            Root?  Why Not?
-	MSTI 1       16385        3c:8a:b0:9c:3a:01   No    Root has lower MAC.
-	  VLANS: 10-20                                Root port:  ge-0/0/13.0
+		-------------------------------------------------------------
+		Region       Rt Priority  Root MAC            Root?  Why Not?
+		MSTI 1       16385        3c:8a:b0:9c:3a:01   No    Root has lower MAC.
+		  VLANS: 10-20                                Root port:  ge-0/0/13.0
 
-	-------------------------------------------------------------
-	Region       Rt Priority  Root MAC            Root?  Why Not?
-	MSTI 2       16385        3c:8a:b0:9c:3a:01   Yes    N/A
-	  VLANS: 21-50
+		-------------------------------------------------------------
+		Region       Rt Priority  Root MAC            Root?  Why Not?
+		MSTI 2       16385        3c:8a:b0:9c:3a:01   Yes    N/A
+		  VLANS: 21-50
 
 */
 match / {
@@ -86,15 +94,14 @@ match / {
 
 		/* Format string for printf function calls */
 		var $format = "%-13s%-13s%-20s%-7s%-30s";
-
-		/* header line */
-		expr jcs:output( "-------------------------------------------------------------" );
-		expr jcs:output( jcs:printf( $format, "Region", "Rt Priority", "Root MAC", "Root?", "Why Not?") );
 		
 		/* loops for each CIST available (there should only be one, 
 		but I want to keep some variables local, so I'm using a loop 
 		to contain the first STP instance (or only instance, if STP/RSTP))  */
 		for-each ( $bridge-res/cist-bridge-parameters ) {
+			/* header line */
+			expr jcs:output( "-------------------------------------------------------------" );
+			expr jcs:output( jcs:printf( $format, "Region", "Rt Priority", "Root MAC", "Root?", "Why Not?") );
 			var $cist-res = $bridge-res/cist-bridge-parameters/root-bridge;
 			/* The following if will change MSTP to CIST for clarity on the first line of MSTP output. */
 			var $protocol = { if ($bridge-res/protocol == "MSTP") {
@@ -158,15 +165,15 @@ match / {
 		/* only does this section if VSTP is running */
 		if ( $bridge-res/vst-bridge-parameters ) {
 			/* header lines */
-			expr jcs:output( "" );
+			expr jcs:output( "\n" );
 			expr jcs:output( "VSTP Instances:" );
 			expr jcs:output( jcs:printf( $format, "VSTP VLAN", "Rt Priority", "Root MAC", "Root?", "Why Not?") );
 			
 			/* loops for each vstp instance */
 			for-each ( $bridge-res/vst-bridge-parameters ) {
-				var $vstp-res = $bridge-res/vst-bridge-parameters/root-bridge;
+				var $vstp-res = ./root-bridge;
 				var $region = " Vlan " _ ./vlan-id ;
-				var $context = ( ./extended-system-id );
+				var $context = ( ./vlan-id );
 				/* Determines if the local switch is root and acts accordingly */
 				if ($vstp-res/bridge-mac == ./this-bridge/bridge-mac) {
 					expr jcs:output( jcs:printf( $format, $region, $vstp-res/bridge-priority, $vstp-res/bridge-mac, "Yes", "N/A") );
@@ -215,38 +222,44 @@ template rootport-vlans ($results, $context, $vlans, $msti, $root, $protocol) {
 	/* finds the vlan string for the msti we are in. */
 	var $vlans-output = { for-each ( $vlans/vlan-map/vlan-map-entry ) {
 									if ($msti == ./msti-id) {
-										expr ./vlan-string;
+										expr str:replace(./vlan-string, ",", ", " );
 									}
 								}
 							}
-				
+
+	/* If the MSTP instance we are looking for isn't in the 'show spanning-tree interface' output, 
+	   then there were no active interfaces on any VLANs in that MSTI. */
+	if ( count($results/stp-instance[instance-id==$context]) == 0 and $protocol == 'MSTP') {
+		expr jcs:output( jcs:printf( "%-45s", 'No active interfaces on any VLANs in this MSTI.') );
+		expr jcs:output( jcs:printf( "%7s%-38s", 'VLANS: ' , $vlans-output ) );	
+	}
 	/* loops for each instance, trying to find the context that we need to be in to find the right 
 	   root port, otherwise it could be for the wrong M/VSTP instance. */			
 	for-each ( $results/stp-instance ) {
-		if ( $context == ./instance-id ) {
+		if ( $context == ./instance-id or $context == ./vlan-id) {
 			var $stp-res = ./stp-interfaces;
-			if ($root == 0 ) {
+			if ( $root == 0 ) {
 				/* Loops through each interface to find the root port.  */
 				for-each ( $stp-res/stp-interface-entry ) {
 					if ( ./port-role == "ROOT" ) {
-						var $root-output = ./interface-name;
+						var $root-port = ./interface-name;
 						/* If we're not running RSTP, we need to print the VLANs associated with the MSTI also */
-						if ($protocol != 'RSTP') {
+						if ($protocol != 'RSTP' and $protocol != 'STP' and $protocol != 'VSTP') {
 							/* If list of vlans >= 35 characters, put it on a line below so root port doesn't get shifted. */
 							if (string-length($vlans-output) > 35) {
-								expr jcs:output( jcs:printf( "%-45s%12s%-20s", '', 'Root port: ', $root-output ) );
+								expr jcs:output( jcs:printf( "%-45s%12s%-20s", '', 'Root port: ', $root-port ) );
 								expr jcs:output( jcs:printf( "%7s%-38s", 'VLANS: ' , $vlans-output) );
 							} else {
-								expr jcs:output( jcs:printf( "%7s%-38s%12s%-20s", 'VLANS: ' , $vlans-output, 'Root port: ', $root-output ) );
+								expr jcs:output( jcs:printf( "%7s%-38s%12s%-20s", 'VLANS: ' , $vlans-output, 'Root port: ', $root-port ) );
 							}
 						} else {
-							expr jcs:output( jcs:printf( "%45s%12s%-20s", '' , 'Root port: ', $root-output ) );
+							expr jcs:output( jcs:printf( "%45s%12s%-20s", '' , 'Root port: ', $root-port ) );
 						}
 					}
 				}
 			}
 			/* outputs just the vlan info we are the root switch for this instance */
-			else if ($protocol != 'RSTP') {
+			else if ( $protocol == 'MSTP' ) {
 				expr jcs:output( jcs:printf( "%7s%-38s", 'VLANS: ' , $vlans-output ) );
 			}
 		}

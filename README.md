@@ -68,3 +68,9 @@ For detailed information for storing and enabling an op script on your Junos dev
 	- Updated the Readme with instructions on using the SLAX script. 
 	- Modified output to be shown to the user as it is generated, rather than all at once upon script completion.
 	This should create quicker results for large numbers of MSTIs, so the user knows that the script is actively working.
+* v1.3.1
+	- Rootport-vlans template will now let the user know if there are no interfaces active in a given MSTI. 
+	- Rootport-vlans template will also now output the VLAN info for MSTIs where no VLANS in the MSTI have active interfaces. 
+	- VLAN info will now also be omitted when the protocol is STP, was previously only omitting for RSTP. 
+	- VSTP logic fix, had the same problem as MSTP in v1.3
+	- Made the VLAN list output easier to read by injecting a space after each comma. 
