@@ -41,7 +41,8 @@ VERSION HISTORY:
 	- Rootport-vlans template will also now output the VLAN info for MSTIs where no VLANS in the MSTI have active interfaces. 
 	- VLAN info will now also be omitted when the protocol is STP, was previously only omitting for RSTP. 
 	- VSTP logic fix, had the same problem as MSTP in v1.3
-	- Made the VLAN list output easier to read by injecting a space after each comma. 
+	- Made the VLAN list output easier to read by injecting a space after each comma.
+	- Updated example output inside the script, and within the Readme file. 
 
 AUTHOR: 
 	Nathan Printz
@@ -56,22 +57,62 @@ EXAMPLES:
 		                                              Root port:  ge-0/0/47.0
 
 	MSTP:
-		> op stp
+		> op stp  
 
 		-------------------------------------------------------------
-		Region       Rt Priority  Root MAC            Root?  Why Not?
-		CIST         32768        3c:8a:b0:9c:3a:01   Yes    N/A
-		  VLANS: 0-9,51-4094
+		Region       Rt Priority  Root MAC            Root?  Why Not?                      
+		CIST         8192         00:19:e2:51:83:c1   No     Your priority: 32768          
+		                                              Root port: ge-0/0/12.0         
+		VLANS: 0-264, 267-269, 271-1300, 1303-1330, 1333-4094
 
 		-------------------------------------------------------------
-		Region       Rt Priority  Root MAC            Root?  Why Not?
-		MSTI 1       16385        3c:8a:b0:9c:3a:01   No    Root has lower MAC.
-		  VLANS: 10-20                                Root port:  ge-0/0/13.0
+		Configuration Name     Revision Level    Configuration Digest                    
+		Test-MSTP              1                 0x2adca6e344946ceedde262329c949bb0      
 
 		-------------------------------------------------------------
-		Region       Rt Priority  Root MAC            Root?  Why Not?
-		MSTI 2       16385        3c:8a:b0:9c:3a:01   Yes    N/A
-		  VLANS: 21-50
+		Region       Rt Priority  Root MAC            Root?  Why Not?                      
+		MSTI 1       32769        00:19:e2:51:85:c1   No     Root has lower MAC.           
+		VLANS: 1301-1302                              Root port: ge-0/0/12.0         
+
+		-------------------------------------------------------------
+		Region       Rt Priority  Root MAC            Root?  Why Not?                      
+		MSTI 2       32770        3c:8a:b0:9b:fc:81   Yes    N/A                           
+		No active interfaces on any VLANs in this MSTI.
+		VLANS: 1331-1332                             
+
+		-------------------------------------------------------------
+		Region       Rt Priority  Root MAC            Root?  Why Not?                      
+		MSTI 3       32771        00:19:e2:51:85:c1   No     Root has lower MAC.           
+		VLANS: 265-266, 270                           Root port: ge-0/0/12.0  
+
+	VSTP:
+		> op stp 
+
+		VSTP Instances:
+		VSTP VLAN    Rt Priority  Root MAC            Root?  Why Not?                      
+		 Vlan 10     32778        3c:8a:b0:9b:fc:81   Yes    N/A                           
+		 Vlan 11     32779        3c:8a:b0:9b:fc:81   Yes    N/A                           
+		 Vlan 12     32780        3c:8a:b0:9b:fc:81   Yes    N/A                           
+		 Vlan 13     32781        3c:8a:b0:9b:fc:81   Yes    N/A                           
+		 Vlan 1301   34069        00:19:e2:51:85:c1   No     Root has lower MAC.           
+		                                              Root port: ge-0/0/12.0         
+		 Vlan 1331   34099        3c:8a:b0:9b:fc:81   Yes    N/A                           
+		 Vlan 14     32782        3c:8a:b0:9b:fc:81   Yes    N/A                           
+		 Vlan 15     32783        3c:8a:b0:9b:fc:81   Yes    N/A                           
+		 Vlan 16     32784        3c:8a:b0:9b:fc:81   Yes    N/A                           
+		 Vlan 17     32785        3c:8a:b0:9b:fc:81   Yes    N/A                           
+		 Vlan 18     32786        3c:8a:b0:9b:fc:81   Yes    N/A                           
+		 Vlan 21     32789        3c:8a:b0:9b:fc:81   Yes    N/A                           
+		 Vlan 23     32791        3c:8a:b0:9b:fc:81   Yes    N/A                           
+		 Vlan 24     32792        3c:8a:b0:9b:fc:81   Yes    N/A                           
+		 Vlan 258    33026        3c:8a:b0:9b:fc:81   Yes    N/A                           
+		 Vlan 265    33033        00:19:e2:51:85:c1   No     Root has lower MAC.           
+		                                              Root port: ge-0/0/12.0         
+		 Vlan 400    33168        3c:8a:b0:9b:fc:81   Yes    N/A                           
+		 Vlan 500    33268        3c:8a:b0:9b:fc:81   Yes    N/A                           
+		 Vlan 620    33388        3c:8a:b0:9b:fc:81   Yes    N/A                           
+		 Vlan 621    33389        3c:8a:b0:9b:fc:81   Yes    N/A                           
+		 Vlan 666    33434        3c:8a:b0:9b:fc:81   Yes    N/A       
 
 */
 match / {
@@ -243,7 +284,7 @@ template rootport-vlans ($results, $context, $vlans, $msti, $root, $protocol) {
 				for-each ( $stp-res/stp-interface-entry ) {
 					if ( ./port-role == "ROOT" ) {
 						var $root-port = ./interface-name;
-						/* If we're not running RSTP, we need to print the VLANs associated with the MSTI also */
+						/* If we're running MSTP, we need to print the VLANs associated with the MSTI also */
 						if ($protocol != 'RSTP' and $protocol != 'STP' and $protocol != 'VSTP') {
 							/* If list of vlans >= 35 characters, put it on a line below so root port doesn't get shifted. */
 							if (string-length($vlans-output) > 35) {
@@ -252,13 +293,14 @@ template rootport-vlans ($results, $context, $vlans, $msti, $root, $protocol) {
 							} else {
 								expr jcs:output( jcs:printf( "%7s%-38s%12s%-20s", 'VLANS: ' , $vlans-output, 'Root port: ', $root-port ) );
 							}
-						} else {
+						} /* We're running something other than MSTP, and just need the root port info */
+						else {
 							expr jcs:output( jcs:printf( "%45s%12s%-20s", '' , 'Root port: ', $root-port ) );
 						}
 					}
 				}
 			}
-			/* outputs just the vlan info we are the root switch for this instance */
+			/* outputs just the vlan info if we are the root (and running MSTP) */
 			else if ( $protocol == 'MSTP' ) {
 				expr jcs:output( jcs:printf( "%7s%-38s", 'VLANS: ' , $vlans-output ) );
 			}

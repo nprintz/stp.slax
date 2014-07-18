@@ -69,6 +69,8 @@ h4:hover a span.headeranchor:before { content: '\f05c'; }
 h5:hover a span.headeranchor:before { content: '\f05c'; }
 h6:hover a span.headeranchor:before { content: '\f05c'; }
 
+abbr { cursor: pointer; }
+
 /* Paragraphs */
 p { margin:1em 0; }
 
@@ -114,7 +116,7 @@ span.backtick {
 
 pre, code, kbd, samp {
   color: #000;
-  font-family: monospace;
+  font-family: Consolas, "Liberation Mono", Menlo, Courier, monospace;
   -webkit-border-radius: 3px;
   -moz-border-radius: 3px;
   border-radius: 3px;
@@ -130,15 +132,57 @@ pre {
   padding: 10px;
 }
 
-pre code { border: 0 }
-
 code { padding: 0 3px 0 3px; }
+pre code { border: 0; padding: 0; }
 
-/* Multimarkdown Critic Blocks */
-span.critic_mark { background: #ff0; }
-span.critic_delete { color: #c82829; text-decoration: line-through; }
-span.critic_insert { color: #718c00 ; text-decoration: underline; }
-span.critic_comment { color: #8e908c; font-style: italic; }
+/* Admonition */
+div.admonition {
+  -webkit-border-radius: 3px;
+  -moz-border-radius: 3px;
+  border-radius: 3px;
+  font-size: 0.88em;
+  padding: 0.5em 1em 0.5em 1em;
+  margin: 10px auto;
+}
+
+div.admonition p {
+  padding: 0;
+  margin: 0.5em 0 0.5em 0;
+}
+
+p.admonition-title {
+  font-weight: bold;
+}
+
+div.admonition.attention {
+  color: #4F8A10;
+  background-color: #DFF2BF;
+  border: 1px solid #4F8A10;
+}
+
+div.admonition.caution {
+  color: #9F6000;
+  background-color: #FEEFB3;
+  border: 1px solid #9F6000;
+}
+
+div.admonition.hint {
+  color: #00529B;
+  background-color: #BDE5F8;
+  border: 1px solid #00529B;
+}
+
+div.admonition.danger {
+  color: #D8000C;
+  background-color: #FFBABA;
+  border: 1px solid #D8000C;
+}
+
+div.admonition.note {
+  color: #888888;
+  background-color: #F8F8F8;
+  border: 1px solid #888888;
+}
 
 /* Inlines */
 b, strong { font-weight: bold; }
@@ -154,15 +198,15 @@ sub { bottom: -0.25em; }
 dfn { font-style: italic; }
 
 /* Lists */
-ul, ol { margin: 0.5em 0; padding: 0 0 0 2em; }
+ul, ol { padding-left: 30px; }
 li p:last-child { margin:0 }
-li.task-list-item { list-style-type: none; margin-left: -1.5em; }
-li.task-list-item input { margin-right: .5em; }
-li.task-list-item ul, li.task-list-item ol { margin-left: 1.5em; }
+li.task-list-item { list-style-type: none; }
+li.task-list-item input { float:left; margin-left: -20px; margin-top: 6px; }
+dt { font-weight: bold; font-style: italic;}
 dd { margin: 0 0 0 2em; }
 
 /* Tables */
-table { border-collapse: collapse; border: 1px solid #ddd; }
+table { border-collapse: collapse; border: 1px solid #ddd; background-color: #fefefe; }
 table tr:nth-child(2n) { background-color: #f8f8f8; }
 td, th { border: 1px solid #ddd; padding: 6px 13px; }
 
@@ -246,17 +290,18 @@ also output the Configuration Name, Revision Level, and Configuration Digest. </
 <pre><code>&gt; op stp
 
 -------------------------------------------------------------
-Region       Rt Priority  Root MAC            Root?  Why Not?                      
-RSTP         8192         40:b4:f0:6a:dc:01   No     Your priority: 32768          
+Region       Rt Priority  Root MAC            Root?  Why Not?
+RSTP         8192         40:b4:f0:6a:dc:01   No     Your priority: 32768
                                               Root port:  ge-0/0/47.0
 </code></pre>
-<p><strong>MSTP Example:</strong>  </p>
+<p><strong>MSTP Example</strong>  </p>
 <pre><code>&gt; op stp
 
 -------------------------------------------------------------
 Region       Rt Priority  Root MAC            Root?  Why Not?                      
-CIST         32768        3c:8a:b0:9c:3a:01   Yes    N/A                           
-  VLANS: 0-9,51-4094
+CIST         8192         00:19:e2:51:83:c1   No     Your priority: 32768          
+                                              Root port: ge-0/0/12.0         
+VLANS: 0-264, 267-269, 271-1300, 1303-1330, 1333-4094
 
 -------------------------------------------------------------
 Configuration Name     Revision Level    Configuration Digest                    
@@ -264,13 +309,48 @@ Test-MSTP              1                 0x2adca6e344946ceedde262329c949bb0
 
 -------------------------------------------------------------
 Region       Rt Priority  Root MAC            Root?  Why Not?                      
-MSTI 1       16385        3c:8a:b0:9c:3a:01   No    Root has lower MAC.    
-  VLANS: 10-20                                Root port:  ge-0/0/13.0
+MSTI 1       32769        00:19:e2:51:85:c1   No     Root has lower MAC.           
+VLANS: 1301-1302                              Root port: ge-0/0/12.0
 
 -------------------------------------------------------------
 Region       Rt Priority  Root MAC            Root?  Why Not?                      
-MSTI 2       16385        3c:8a:b0:9c:3a:01   Yes    N/A                           
-  VLANS: 21-50
+MSTI 2       32770        3c:8a:b0:9b:fc:81   Yes    N/A                           
+No active interfaces on any VLANs in this MSTI.
+VLANS: 1331-1332
+
+-------------------------------------------------------------
+Region       Rt Priority  Root MAC            Root?  Why Not?                      
+MSTI 3       32771        00:19:e2:51:85:c1   No     Root has lower MAC.           
+VLANS: 265-266, 270                           Root port: ge-0/0/12.0
+</code></pre>
+<p><strong>VSTP Example</strong>  </p>
+<pre><code>&gt; op stp
+
+VSTP Instances:
+VSTP VLAN    Rt Priority  Root MAC            Root?  Why Not?                      
+ Vlan 10     32778        3c:8a:b0:9b:fc:81   Yes    N/A                           
+ Vlan 11     32779        3c:8a:b0:9b:fc:81   Yes    N/A                           
+ Vlan 12     32780        3c:8a:b0:9b:fc:81   Yes    N/A                           
+ Vlan 13     32781        3c:8a:b0:9b:fc:81   Yes    N/A                           
+ Vlan 1301   34069        00:19:e2:51:85:c1   No     Root has lower MAC.           
+                                              Root port: ge-0/0/12.0         
+ Vlan 1331   34099        3c:8a:b0:9b:fc:81   Yes    N/A                           
+ Vlan 14     32782        3c:8a:b0:9b:fc:81   Yes    N/A                           
+ Vlan 15     32783        3c:8a:b0:9b:fc:81   Yes    N/A                           
+ Vlan 16     32784        3c:8a:b0:9b:fc:81   Yes    N/A                           
+ Vlan 17     32785        3c:8a:b0:9b:fc:81   Yes    N/A                           
+ Vlan 18     32786        3c:8a:b0:9b:fc:81   Yes    N/A                           
+ Vlan 21     32789        3c:8a:b0:9b:fc:81   Yes    N/A                           
+ Vlan 23     32791        3c:8a:b0:9b:fc:81   Yes    N/A                           
+ Vlan 24     32792        3c:8a:b0:9b:fc:81   Yes    N/A                           
+ Vlan 258    33026        3c:8a:b0:9b:fc:81   Yes    N/A                           
+ Vlan 265    33033        00:19:e2:51:85:c1   No     Root has lower MAC.           
+                                              Root port: ge-0/0/12.0         
+ Vlan 400    33168        3c:8a:b0:9b:fc:81   Yes    N/A                           
+ Vlan 500    33268        3c:8a:b0:9b:fc:81   Yes    N/A                           
+ Vlan 620    33388        3c:8a:b0:9b:fc:81   Yes    N/A                           
+ Vlan 621    33389        3c:8a:b0:9b:fc:81   Yes    N/A                           
+ Vlan 666    33434        3c:8a:b0:9b:fc:81   Yes    N/A
 </code></pre>
 <h4 id="version-history"><a name="user-content-version-history" href="#version-history" class="headeranchor-link"  aria-hidden="true"><span class="headeranchor"></span></a>Version History:</h4>
 <ul>
@@ -305,6 +385,7 @@ This should create quicker results for large numbers of MSTIs, so the user knows
 <li>VLAN info will now also be omitted when the protocol is STP, was previously only omitting for RSTP. </li>
 <li>VSTP logic fix, had the same problem as MSTP in v1.3</li>
 <li>Made the VLAN list output easier to read by injecting a space after each comma. </li>
+<li>Updated example output inside the script, and within the Readme file. </li>
 </ul>
 </li>
 </ul></body></html>
